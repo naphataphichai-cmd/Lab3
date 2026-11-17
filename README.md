@@ -12,7 +12,7 @@ independent nodal solve.
 ## Repository
 
 - GitHub: <https://github.com/naphataphichai-cmd/Lab3>
-- Lab 03 commit: `46ffd41f309524498e513b2f2718b633981cc2cd`
+- Lab 03 commit: `491c690e62275a04448905b2288fc6550ba7f76c`
 - How to run and open the app: see [Run](#run)
 
 ## What it does
