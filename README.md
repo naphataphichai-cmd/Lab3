@@ -11,7 +11,7 @@ independent nodal solve.
 
 ## Repository
 
-- GitHub: <https://github.com/naphataphichai-cmd/Lab2>
+- GitHub: <https://github.com/naphataphichai-cmd/Lab3>
 - Lab 03 commit: `46ffd41f309524498e513b2f2718b633981cc2cd`
 - How to run and open the app: see [Run](#run)
 
