@@ -1,7 +1,7 @@
 # Lab 03 — Browser Acceptance Record (A1–A5)
 
 - GitHub: <https://github.com/naphataphichai-cmd/Lab3>
-- Commit: `491c690e62275a04448905b2288fc6550ba7f76c`
+- Commit: `27700bba838c487dfb7dafb3491bb2f3bd2c2536`
 
 Shared inputs for every case: `VCC = 12 V`, `RC = 2.2 kΩ`, `β = 100`,
 `VBE = 0.70 V`. Expected values below were calculated by hand from the Lab 03

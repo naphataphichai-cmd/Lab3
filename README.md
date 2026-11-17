@@ -11,7 +11,7 @@ forward-active และตรวจผลทุกโหมดด้วยก�
 ## Repository
 
 - GitHub: <https://github.com/naphataphichai-cmd/Lab3>
-- Commit ของ Lab 03: `491c690e62275a04448905b2288fc6550ba7f76c`
+- Commit ของ Lab 03: `27700bba838c487dfb7dafb3491bb2f3bd2c2536`
 - วิธีรันและเปิดเว็บ: ดูหัวข้อ [วิธีรัน](#วิธีรัน)
 
 ## หลักการทำงาน
