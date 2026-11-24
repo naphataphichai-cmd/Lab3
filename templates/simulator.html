@@ -39,14 +39,26 @@
   <aside class="panel sim-inputs">
     <h2 class="panel-title"><span class="panel-icon">⚙</span> Circuit &amp; Parameters</h2>
 
+    <form method="get" action="{{ url_for('simulator_get') }}" class="mode-form sim-mode-form">
+      <label class="field-label" for="mode">Circuit Mode</label>
+      <select id="mode" name="mode" class="mode-select" onchange="this.form.submit()">
+        {% for value, label in mode_choices %}
+        <option value="{{ value }}" {% if value == mode %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="analysis" value="{{ analysis }}">
+      <noscript><button type="submit" class="btn-mode">Load circuit</button></noscript>
+    </form>
+
     <div class="sim-circuit">
-      <svg class="schematic sim-schematic" viewBox="0 0 380 430" role="img" aria-label="Common-emitter amplifier with voltage-divider bias, coupling capacitors and load">
+      <svg class="schematic sim-schematic" viewBox="0 0 380 430" role="img" aria-label="Common-emitter amplifier: {{ mode_label }}, coupling capacitors and load">
         <!-- VCC rail -->
         <circle class="node" cx="100" cy="40" r="3.5" />
         <circle class="node" cx="250" cy="40" r="3.5" />
         <path class="wire" d="M100,40 H250" />
         <text class="ref-val" x="175" y="28" text-anchor="middle">+VCC = {{ values.get('vcc', '') }} {{ units.get('vcc', '') }}</text>
 
+        {% if mode == 'divider' %}
         <!-- R1 -->
         <path class="wire" d="M100,40 V56 L108,62 L92,74 L108,86 L92,98 L108,110 L100,116 V190" />
         <path class="wire" d="M100,190 V220" />
@@ -58,6 +70,13 @@
         <path class="wire" d="M100,220 V240 L108,246 L92,258 L108,270 L92,282 L108,294 L100,300 V390" />
         <text class="ref" x="78" y="270" text-anchor="end">R2</text>
         <text class="ref-val" x="78" y="288" text-anchor="end">{{ values.get('r2', '') }} {{ units.get('r2', '') }}</text>
+        {% else %}
+        <!-- RB from VCC to base -->
+        <path class="wire" d="M100,40 V56 L108,62 L92,74 L108,86 L92,98 L108,110 L100,116 V220" />
+        <circle class="node" cx="100" cy="220" r="3.5" />
+        <text class="ref" x="78" y="92" text-anchor="end">RB</text>
+        <text class="ref-val" x="78" y="110" text-anchor="end">{{ values.get('rb', '') }} {{ units.get('rb', '') }}</text>
+        {% endif %}
 
         <!-- base wire -->
         <path class="wire" d="M100,220 H205" />
@@ -77,10 +96,15 @@
         <text class="ref-val" x="282" y="230">NPN</text>
         <text class="ref-val" x="282" y="246">{{ model_name }}</text>
 
+        {% if mode == 'fixed' %}
+        <!-- emitter tied directly to ground -->
+        <path class="wire" d="M250,250 V390" />
+        {% else %}
         <!-- RE -->
         <path class="wire" d="M250,250 V270 L258,276 L242,288 L258,300 L242,312 L258,324 L250,330 V390" />
         <text class="ref" x="272" y="300">RE</text>
         <text class="ref-val" x="272" y="318">{{ values.get('re', '') }} {{ units.get('re', '') }}</text>
+        {% endif %}
 
         <!-- Cout and output node -->
         <path class="wire" d="M250,190 H292" />
@@ -122,6 +146,7 @@
     </div>
 
     <form method="post" action="{{ url_for('simulator_post') }}" novalidate class="sim-form">
+      <input type="hidden" name="mode" value="{{ mode }}">
       <fieldset class="analysis-tabs">
         <legend class="field-label">Analysis</legend>
         {% for value, label in analysis_choices %}
@@ -135,10 +160,16 @@
       <div class="sim-group">
         <h3>Supply &amp; bias</h3>
         {{ sim_field("vcc", "VCC", values, errors, unit_choices, units) }}
+        {% if mode == 'divider' %}
         {{ sim_field("r1", "R1 (upper divider)", values, errors, unit_choices, units) }}
         {{ sim_field("r2", "R2 (lower divider)", values, errors, unit_choices, units) }}
+        {% else %}
+        {{ sim_field("rb", "RB (Base Resistor)", values, errors, unit_choices, units) }}
+        {% endif %}
         {{ sim_field("rc", "RC (collector)", values, errors, unit_choices, units) }}
+        {% if mode != 'fixed' %}
         {{ sim_field("re", "RE (emitter)", values, errors, unit_choices, units) }}
+        {% endif %}
         {{ sim_field("rl", "RL (load)", values, errors, unit_choices, units) }}
       </div>
 
@@ -178,7 +209,7 @@
     {% if result %}
     <div class="run-strip">
       <span class="status-pill pass">SUCCESS</span>
-      <span class="run-analysis">{{ result.analysis_label }}</span>
+      <span class="run-analysis">{{ result.mode_label }} · {{ result.analysis_label }}</span>
       <span class="run-source">Source: {{ result.source_text }}</span>
     </div>
 
@@ -209,7 +240,7 @@
     <h2 class="panel-title"><span class="panel-icon">📊</span> Engineering Results</h2>
 
     {% if result %}
-    <p class="mode-tag">{{ result.analysis_label }}</p>
+    <p class="mode-tag">{{ result.mode_label }} · {{ result.analysis_label }}</p>
 
     <div class="metric-grid">
       {% for metric in result.metrics %}

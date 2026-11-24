@@ -60,14 +60,17 @@ UNIT_CHOICES = {
 }
 
 MODE_CHOICES = [(mode, model.MODE_LABELS[mode]) for mode in model.MODES]
+CIRCUIT_MODE_CHOICES = [(mode, model.MODE_LABELS[mode]) for mode in model.MODES]
 
 SPICE_DEFAULT_FORM = {
+    "mode": "divider",
     "analysis": spice_engine.ANALYSIS_DC,
     "vcc": "12",
     "r1": "100",
     "r2": "22",
     "rc": "2.2",
     "re": "1.0",
+    "rb": "1",
     "rl": "10",
     "cin": "10",
     "cout": "10",
@@ -81,6 +84,7 @@ SPICE_DEFAULT_UNITS = {
     "r2": "kΩ",
     "rc": "kΩ",
     "re": "kΩ",
+    "rb": "MΩ",
     "rl": "kΩ",
     "cin": "µF",
     "cout": "µF",
@@ -94,6 +98,7 @@ SPICE_UNIT_CHOICES = {
     "r2": RESISTOR_UNITS,
     "rc": RESISTOR_UNITS,
     "re": RESISTOR_UNITS,
+    "rb": RESISTOR_UNITS,
     "rl": RESISTOR_UNITS,
     "cin": CAPACITOR_UNITS,
     "cout": CAPACITOR_UNITS,
@@ -297,17 +302,46 @@ def _build_simulator_view(result: spice_engine.SpiceResult, inputs) -> dict:
         "SPICE uses the 2N3904 model, so the two DC results need not match "
         "digit for digit."
     )
+    mode = inputs.mode
+    mode_label = spice_engine.MODE_LABELS.get(mode, mode)
+    analytical_note = (
+        f"Lab 03 analytical reference ({mode_label}): β = 100, VBE = 0.70 V. "
+        "SPICE uses the 2N3904 model, so the two DC results need not match "
+        "digit for digit."
+    )
+
     try:
-        reference = model.BiasInputs(
-            vcc=inputs.vcc,
-            r1=inputs.r1,
-            r2=inputs.r2,
-            rc=inputs.rc,
-            re=inputs.re,
-            beta=SPICE_REFERENCE_BETA,
-            vbe=SPICE_REFERENCE_VBE,
-        )
-        evaluation = evaluate.evaluate(reference, model.MODE_DIVIDER)
+        if mode == spice_engine.MODE_DIVIDER:
+            reference = model.BiasInputs(
+                vcc=inputs.vcc,
+                r1=inputs.r1,
+                r2=inputs.r2,
+                rc=inputs.rc,
+                re=inputs.re,
+                beta=SPICE_REFERENCE_BETA,
+                vbe=SPICE_REFERENCE_VBE,
+            )
+        elif mode == spice_engine.MODE_FIXED:
+            reference = model.FixedBiasInputs(
+                vcc=inputs.vcc,
+                rb=inputs.rb,
+                rc=inputs.rc,
+                beta=SPICE_REFERENCE_BETA,
+                vbe=SPICE_REFERENCE_VBE,
+            )
+        elif mode == spice_engine.MODE_EMITTER:
+            reference = model.EmitterBiasInputs(
+                vcc=inputs.vcc,
+                rb=inputs.rb,
+                re=inputs.re,
+                rc=inputs.rc,
+                beta=SPICE_REFERENCE_BETA,
+                vbe=SPICE_REFERENCE_VBE,
+            )
+        else:
+            raise ValueError(f"unknown circuit mode: {mode}")
+
+        evaluation = evaluate.evaluate(reference, mode)
         analytical_region = evaluation.region.name
         for symbol, field, kind in RESULT_ROWS:
             analytical_rows.append(
@@ -324,13 +358,14 @@ def _build_simulator_view(result: spice_engine.SpiceResult, inputs) -> dict:
                 delta_rows.append(
                     {"symbol": symbol, "value": _with_unit(kind, difference)}
                 )
-    except (ValueError, ZeroDivisionError, OverflowError):
+    except (ValueError, TypeError, ZeroDivisionError, OverflowError):
         analytical_note = (
             "Lab 03 analytical reference is not available for these inputs."
         )
 
     metrics = [
         {"label": "Run status", "value": "SUCCESS"},
+        {"label": "Circuit", "value": mode_label},
         {"label": "Analysis", "value": spice_engine.ANALYSIS_LABELS[result.analysis]},
         {"label": "Engine", "value": result.engine},
         {"label": "Model", "value": result.model},
@@ -430,6 +465,8 @@ def _build_simulator_view(result: spice_engine.SpiceResult, inputs) -> dict:
         )
 
     return {
+        "mode": mode,
+        "mode_label": mode_label,
         "analysis": result.analysis,
         "analysis_label": spice_engine.ANALYSIS_LABELS[result.analysis],
         "spice_rows": spice_rows,
@@ -479,6 +516,7 @@ def create_app() -> Flask:
         )
 
     def render_simulator(
+        mode: str,
         analysis: str,
         values,
         units,
@@ -490,8 +528,14 @@ def create_app() -> Flask:
         engine_label: str = "",
         engine_detail=None,
     ):
+        if mode not in spice_validation.CIRCUIT_FIELDS:
+            mode = "divider"
+        mode_label = model.MODE_LABELS.get(mode, mode)
         return render_template(
             "simulator.html",
+            mode=mode,
+            mode_label=mode_label,
+            mode_choices=CIRCUIT_MODE_CHOICES,
             analysis=analysis,
             analysis_label=spice_validation.ANALYSIS_LABELS.get(analysis, analysis),
             analysis_choices=spice_validation.ANALYSIS_CHOICES,
@@ -512,18 +556,22 @@ def create_app() -> Flask:
 
     @app.get("/simulator")
     def simulator_get():
-        analysis, error = spice_validation.parse_analysis(
+        mode, mode_error = spice_validation.parse_circuit(request.args.get("mode"))
+        if mode_error is not None:
+            mode = "divider"
+        analysis, analysis_error = spice_validation.parse_analysis(
             request.args.get("analysis")
         )
-        if error is not None:
+        if analysis_error is not None:
             analysis = spice_engine.ANALYSIS_DC
-        values = dict(SPICE_DEFAULT_FORM, analysis=analysis)
+        values = dict(SPICE_DEFAULT_FORM, mode=mode, analysis=analysis)
         ready, label, detail = spice_engine.engine_status()
         return render_simulator(
+            mode,
             analysis,
             values,
             dict(SPICE_DEFAULT_UNITS),
-            form_error=error.message if error else None,
+            form_error=mode_error.message if mode_error else (analysis_error.message if analysis_error else None),
             engine_ready=ready,
             engine_label=label,
             engine_detail=detail,
@@ -531,36 +579,45 @@ def create_app() -> Flask:
 
     @app.post("/simulator")
     def simulator_post():
+        mode, mode_error = spice_validation.parse_circuit(
+            request.form.get("mode")
+        )
         analysis, analysis_error = spice_validation.parse_analysis(
             request.form.get("analysis")
         )
         units = _selected_units(
             request.form, SPICE_DEFAULT_UNITS, SPICE_UNIT_CHOICES
         )
+        render_mode = mode if mode is not None else "divider"
         render_analysis = analysis or spice_engine.ANALYSIS_DC
         ready, label, detail = spice_engine.engine_status()
 
-        if analysis_error is not None:
+        if mode_error is not None or analysis_error is not None:
             return render_simulator(
+                render_mode,
                 render_analysis,
                 request.form,
                 units,
-                form_error=analysis_error.message,
+                form_error=(mode_error or analysis_error).message,
                 engine_ready=ready,
                 engine_label=label,
                 engine_detail=detail,
             )
 
+        fields = spice_validation.CIRCUIT_FIELDS[render_mode]
         base_values = _to_base_units(
             request.form,
             units,
-            spice_validation.SPICE_FIELDS,
+            fields,
             SPICE_UNIT_CHOICES,
         )
-        inputs, errors = spice_validation.parse_spice_inputs(base_values)
+        inputs, errors = spice_validation.parse_spice_inputs(
+            base_values, mode=render_mode
+        )
 
         if errors:
             return render_simulator(
+                render_mode,
                 render_analysis,
                 request.form,
                 units,
@@ -575,6 +632,7 @@ def create_app() -> Flask:
             view = _build_simulator_view(result, inputs)
         except spice_engine.SpiceError as exc:
             return render_simulator(
+                render_mode,
                 render_analysis,
                 request.form,
                 units,
@@ -583,8 +641,9 @@ def create_app() -> Flask:
                 engine_label=label,
                 engine_detail=detail,
             )
-        except (ValueError, ZeroDivisionError, OverflowError):
+        except (ValueError, TypeError, ZeroDivisionError, OverflowError):
             return render_simulator(
+                render_mode,
                 render_analysis,
                 request.form,
                 units,
@@ -598,6 +657,7 @@ def create_app() -> Flask:
             )
 
         return render_simulator(
+            render_mode,
             render_analysis,
             request.form,
             units,
