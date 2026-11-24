@@ -135,6 +135,37 @@ differ from the Lab 03 analytical reference because the 2N3904 model and the
   No pixel screenshot is attached because `browser.screenshot` reported
   "Screenshot needs a visible tab"; the layout evidence is the live DOM/CSS
   metrics above.
+
+---
+
+# Lab 04 Circuit Mode Switching — Browser Acceptance (B9–B13)
+
+Shared baseline for the mode checks: `VCC = 12 V`, `RC = 2.2 kΩ`,
+`RL = 10 kΩ`, `Cin = Cout = 10 µF`, `amplitude = 10 mV peak`,
+`frequency = 1 kHz`. Fixed mode adds `RB = 1 MΩ`; emitter mode adds
+`RB = 1 MΩ` and `RE = 1 kΩ`. Divider mode keeps `R1 = 100 kΩ`,
+`R2 = 22 kΩ`, `RE = 1 kΩ`.
+
+| Case | Check | Expected | Observed | Status |
+|---|---|---|---|---|
+| B9 · mode selector | Switching the dropdown changes visible fields, schematic and labels without leaving the page's analysis selection | Fixed shows `RB` and no `R1/R2/RE`; emitter shows `RB` and `RE`; divider shows `R1/R2/RE`; `analysis` is preserved | Fixed fields `VCC, RB, RC, RL, Cin, Cout, amplitude, frequency`; emitter also `RE`; divider `VCC, R1, R2, RC, RE, RL, Cin, Cout, amplitude, frequency`; mode label changes on the page | PASS |
+| B10 · Fixed DC | Run DC on fixed bias | Real ngspice result, active region, emitter at ground | `VB = 0.6781 V`, `VE = 0 V`, `VC = 8.148 V`, `VCE = 8.148 V`, `IB = 11.32 µA`, `IC = 1.751 mA`, `IE = 1.762 mA`; analytical reference `IC = 1.13 mA`, `VCE = 9.514 V` | PASS |
+| B11 · Fixed AC and transient | Run AC and transient on fixed bias | High gain, two Bode curves, two waveform traces, inverted output | AC `41.17 dB (114.364×)`, phase `−179.6°`, `fL ≈ 6.31 Hz`, `fH ≈ 28.2 MHz`; transient `Vin pp = 20 mV`, `Vout pp = 2.33 V`, `116.33×`, inverted, window `0 – 5 ms`; 2 polylines in each plot | PASS |
+| B12 · Emitter DC/AC/transient | Run all three analyses on emitter bias | Real ngspice results, active region, `VE > 0`, gain similar to divider | DC `VB = 2.161 V`, `VE = 1.487 V`, `VC = 8.750 V`, `VCE = 7.263 V`, `IC = 1.477 mA`; AC `4.91 dB (1.759×)`, phase `−179.9°`, `fL ≈ 1.41 Hz`; transient `Vin pp = 20 mV`, `Vout pp = 35.2 mV`, `1.76×`, inverted; analytical reference `IC = 1.026 mA`, `VCE = 8.705 V` | PASS |
+| B13 · invalid mode | Submit `mode=noise` | Clear mode error, no `SUCCESS`, no result table, no plot, no ngspice run | `Choose a supported circuit mode.` banner; no `SUCCESS`; no result table; no SVG plot | PASS |
+
+### B9–B13 notes
+
+- B9 was checked by loading `/simulator?mode=fixed`, `?mode=emitter` and
+  `?mode=divider` in the same browser session and reading the visible field
+  list and schematic labels.
+- B10–B12 each triggered fresh ngspice runs. The netlist and run log were
+  available in the collapsible `<details>` blocks, and the page showed the
+  selected mode, engine and model on every successful run.
+- B13 confirms that an unknown mode is rejected before unit conversion,
+  validation and ngspice execution.
+- Divider regression was re-checked after adding the mode selector: the
+  B2–B6 values still match the earlier record.
 - The exact B2–B6 values above were read from the page after each run; none of
   them is a hard-coded success value. Changing `RE`, amplitude, or frequency
   changed the parsed ngspice output and the displayed metrics as expected.

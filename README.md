@@ -163,6 +163,22 @@ Lab 04 ไม่ได้แทนที่ Lab 03: หน้า `/` และ�
   `Lab 03` และ `|Δ|` โดยระบุชัดว่าผล SPICE กับ analytical ใช้สมมติฐานต่างกัน
   จึงไม่จำเป็นต้องตรงกันทุกหลัก
 
+### โหมดวงจร (Circuit Mode)
+
+หน้า `/simulator` มี dropdown "Circuit Mode" ที่สลับ topology ได้ 3 โหมดเหมือน Lab 03:
+
+| โหมด | ตัวต้านทานไบอัส | เส้นทางอิมิตเตอร์ |
+|---|---|---|
+| Voltage Divider Bias | `R1` VCC→ฐาน, `R2` ฐาน→กราวด์ | `RE` อิมิตเตอร์→กราวด์ |
+| Fixed Bias | `RB` VCC→ฐาน | อิมิตเตอร์ต่อลงกราวด์โดยตรง (`VEMIT e 0 DC 0` ใน netlist) |
+| Emitter Bias (single supply) | `RB` VCC→ฐาน | `RE` อิมิตเตอร์→กราวด์ (ไม่มี bypass) |
+
+ช่องอินพุต, schematic, netlist ที่ส่ง ngspice, ผล DC/AC/Transient และผล
+analytical reference จะเปลี่ยนตามโหมดที่เลือกทั้งหมด โหมดเริ่มต้นยังเป็น
+Voltage Divider ค่าเริ่มต้น `VCC = 12 V`, `R1 = 100 kΩ`, `R2 = 22 kΩ`,
+`RC = 2.2 kΩ`, `RE = 1 kΩ`, `RL = 10 kΩ`, `Cin = Cout = 10 µF`,
+`amplitude = 10 mV peak`, `frequency = 1 kHz`
+
 ### ติดตั้ง ngspice (Windows)
 
 แอปเรียก ngspice เป็น executable ภายนอก ไม่ได้ติดตั้งผ่าน pip วิธีที่ใช้ในแล็บนี้:
@@ -196,14 +212,17 @@ Lab 04 ไม่ได้แทนที่ Lab 03: หน้า `/` และ�
 `RL = 10 kΩ`, `Cin = Cout = 10 µF`, `amplitude = 10 mV peak`, `frequency = 1 kHz`
 ให้ผลจาก ngspice 47 กับโมเดล 2N3904 ประมาณ:
 
-| Analysis | Observed |
-|---|---|
-| DC | `VB = 2.004 V`, `VE = 1.333 V`, `VC = 9.087 V`, `VCE = 7.754 V`, `IB = 8.887 µA`, `IC = 1.324 mA`, `IE = 1.333 mA` (active) |
-| AC @ 1 kHz | `4.89 dB (1.756×)`, phase `−179.9°`, midband `4.89 dB`; `fL ≈ 2 Hz`, `fH` อยู่นอก sweep |
-| Transient | `Vin pp = 20 mV`, `Vout pp = 35.1 mV`, `1.76×`, inverted (≈180°), window `0 – 5 ms` |
+| Analysis | Voltage Divider | Fixed Bias | Emitter Bias |
+|---|---|---|---|
+| DC | `VB = 2.004 V`, `VE = 1.333 V`, `VC = 9.087 V`, `VCE = 7.754 V`, `IC = 1.324 mA` (active) | `VB = 0.678 V`, `VE = 0 V`, `VC = 8.148 V`, `VCE = 8.148 V`, `IC = 1.751 mA` (active) | `VB = 2.161 V`, `VE = 1.487 V`, `VC = 8.750 V`, `VCE = 7.263 V`, `IC = 1.477 mA` (active) |
+| AC @ 1 kHz | `4.89 dB (1.756×)`, phase `−179.9°`; `fL ≈ 2 Hz`, `fH` อยู่นอก sweep | `41.17 dB (114.364×)`, phase `−179.6°`; `fL ≈ 6.3 Hz`, `fH ≈ 28.2 MHz` | `4.91 dB (1.759×)`, phase `−179.9°`; `fL ≈ 1.4 Hz`, `fH` อยู่นอก sweep |
+| Transient | `Vin pp = 20 mV`, `Vout pp = 35.1 mV`, `1.76×`, inverted, window `0 – 5 ms` | `Vin pp = 20 mV`, `Vout pp = 2.33 V`, `116.33×`, inverted, window `0 – 5 ms` | `Vin pp = 20 mV`, `Vout pp = 35.2 mV`, `1.76×`, inverted, window `0 – 5 ms` |
 
 ค่าเหล่านี้เป็นผลจาก simulator ไม่ใช่ค่าที่คำนวณมือ และใช้เป็น baseline
-ของ browser acceptance B2–B6 ใน `docs/validation.md`
+ของ browser acceptance B2–B6 (divider) รวมถึง B9–B13 (โหมดใหม่) ใน
+`docs/validation.md` ค่า Fixed Bias อาจต่างจาก Lab 03 analytical มาก because
+`RB` กำหนดกระแสฐานและโมเดล 2N3904 มี `BF` สูงกว่าสมมติฐาน `β = 100` ซึ่งเป็น
+ผลจริงของ simulator ไม่ใช่ข้อผิดพลาด
 
 ### เทสต์ของ Lab 04
 
@@ -349,6 +368,9 @@ AI สร้าง `spice_engine.py` (netlist, subprocess, parser), `spice_valid
 `plotting.py`, route `/simulator` ใน `app.py`, template/CSS ของ Lab 04 และเทสต์
 ที่เกี่ยวข้อง ผู้เขียนกำหนดเงื่อนไขว่าต้องรัน ngspice จริง ใช้โมเดล 2N3904,
 แยกผล SPICE ออกจากผล analytical ของ Lab 03 และห้ามสร้างกราฟปลอม
+การสลับโหมดวงจร (Voltage Divider / Fixed / Emitter) ใช้โหมดและสมการเดียวกับ
+Lab 03 โดย Fixed ใช้ `RB` และอิมิตเตอร์ต่อลงกราวด์, Emitter ใช้ `RB + RE`
+แบบไม่มี bypass
 ผู้เขียนตรวจ B1–B8 ในเบราว์เซอร์ เทียบค่าที่อ่านได้กับค่าคาดหมาย และบันทึก
 หลักฐาน/ข้อจำกัดไว้ใน `docs/validation.md`
 
