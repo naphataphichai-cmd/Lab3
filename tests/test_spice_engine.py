@@ -186,3 +186,129 @@ def test_run_tran_against_real_ngspice():
     assert min(vin) < -0.009
     assert max(vout) > 0.009
     assert min(vout) < -0.009
+
+
+def fixed_inputs() -> spice_engine.SpiceInputs:
+    return spice_engine.SpiceInputs(
+        vcc=12.0,
+        rc=2.2e3,
+        rl=10e3,
+        cin=10e-6,
+        cout=10e-6,
+        amplitude=0.01,
+        frequency=1e3,
+        mode="fixed",
+        rb=1e6,
+    )
+
+
+def emitter_inputs() -> spice_engine.SpiceInputs:
+    return spice_engine.SpiceInputs(
+        vcc=12.0,
+        rc=2.2e3,
+        rl=10e3,
+        cin=10e-6,
+        cout=10e-6,
+        amplitude=0.01,
+        frequency=1e3,
+        mode="emitter",
+        rb=1e6,
+        re=1e3,
+    )
+
+
+def test_build_netlist_fixed_uses_rb_and_grounded_emitter():
+    netlist = build_netlist(fixed_inputs(), ANALYSIS_DC)
+
+    assert "RB vcc b 1000000" in netlist
+    assert "VEMIT e 0 DC 0" in netlist
+    assert "Q1 c b e 2N3904" in netlist
+    assert "R1 vcc b" not in netlist
+    assert "R2 b 0" not in netlist
+    assert "RE e 0" not in netlist
+
+
+def test_build_netlist_emitter_uses_rb_and_re():
+    netlist = build_netlist(emitter_inputs(), ANALYSIS_DC)
+
+    assert "RB vcc b 1000000" in netlist
+    assert "RE e 0 1000" in netlist
+    assert "Q1 c b e 2N3904" in netlist
+    assert "R1 vcc b" not in netlist
+    assert "R2 b 0" not in netlist
+    assert "VEMIT" not in netlist
+
+
+def test_build_netlist_rejects_fixed_without_rb():
+    inputs = spice_engine.SpiceInputs(
+        vcc=12.0,
+        rc=2.2e3,
+        rl=10e3,
+        cin=10e-6,
+        cout=10e-6,
+        amplitude=0.01,
+        frequency=1e3,
+        mode="fixed",
+    )
+
+    with pytest.raises(SpiceError, match="RB is required"):
+        build_netlist(inputs, ANALYSIS_DC)
+
+
+def test_build_netlist_rejects_emitter_without_re():
+    inputs = spice_engine.SpiceInputs(
+        vcc=12.0,
+        rc=2.2e3,
+        rl=10e3,
+        cin=10e-6,
+        cout=10e-6,
+        amplitude=0.01,
+        frequency=1e3,
+        mode="emitter",
+        rb=1e6,
+    )
+
+    with pytest.raises(SpiceError, match="RE is required"):
+        build_netlist(inputs, ANALYSIS_DC)
+
+
+def test_run_dc_fixed_against_real_ngspice():
+    if not spice_engine.ngspice_available():
+        pytest.skip("ngspice is not installed")
+
+    result = run(fixed_inputs(), ANALYSIS_DC)
+
+    assert result.inputs.mode == "fixed"
+    assert result.op is not None
+    assert result.op.vce > 0
+    assert result.op.vce < 12
+    assert result.op.ve == pytest.approx(0.0, abs=1e-6)
+
+
+def test_run_dc_emitter_against_real_ngspice():
+    if not spice_engine.ngspice_available():
+        pytest.skip("ngspice is not installed")
+
+    result = run(emitter_inputs(), ANALYSIS_DC)
+
+    assert result.inputs.mode == "emitter"
+    assert result.op is not None
+    assert result.op.vce > 0
+    assert result.op.vce < 12
+    assert result.op.ve > 0
+
+
+@pytest.mark.parametrize("analysis", [ANALYSIS_AC, ANALYSIS_TRAN])
+@pytest.mark.parametrize("factory", [fixed_inputs, emitter_inputs])
+def test_run_ac_and_tran_all_modes_against_real_ngspice(analysis, factory):
+    if not spice_engine.ngspice_available():
+        pytest.skip("ngspice is not installed")
+
+    result = run(factory(), analysis)
+
+    if analysis == ANALYSIS_AC:
+        assert len(result.ac) > 50
+        assert all(math.isfinite(point.gain_db) for point in result.ac)
+    else:
+        assert len(result.tran) > 100
+        assert all(math.isfinite(point.vout) for point in result.tran)

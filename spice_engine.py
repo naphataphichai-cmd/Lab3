@@ -16,10 +16,18 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from engineering import model as bias_model
+
 ANALYSIS_DC = "dc"
 ANALYSIS_AC = "ac"
 ANALYSIS_TRAN = "tran"
 ANALYSES = (ANALYSIS_DC, ANALYSIS_AC, ANALYSIS_TRAN)
+
+MODE_DIVIDER = bias_model.MODE_DIVIDER
+MODE_FIXED = bias_model.MODE_FIXED
+MODE_EMITTER = bias_model.MODE_EMITTER
+MODES = bias_model.MODES
+MODE_LABELS = bias_model.MODE_LABELS
 
 ANALYSIS_LABELS = {
     ANALYSIS_DC: "DC operating point (.op)",
@@ -55,15 +63,17 @@ class SpiceError(Exception):
 @dataclass(frozen=True)
 class SpiceInputs:
     vcc: float
-    r1: float
-    r2: float
     rc: float
-    re: float
     rl: float
     cin: float
     cout: float
     amplitude: float
     frequency: float
+    mode: str = MODE_DIVIDER
+    r1: float | None = None
+    r2: float | None = None
+    rb: float | None = None
+    re: float | None = None
 
 
 @dataclass(frozen=True)
@@ -198,25 +208,56 @@ def build_netlist(inputs: SpiceInputs, analysis: str) -> str:
     if analysis not in ANALYSES:
         raise SpiceError(f"Unknown analysis: {analysis}")
 
+    mode = inputs.mode
+    if mode not in MODES:
+        raise SpiceError(f"Unknown circuit mode: {mode}")
+
+    def _require(value: float | None, name: str) -> float:
+        if value is None:
+            raise SpiceError(f"{name} is required for this circuit mode.")
+        return value
+
     lines = [
-        "* ENG29 2121 Lab 04 - CE voltage-divider amplifier (generated)",
+        f"* ENG29 2121 Lab 04 - CE {MODE_LABELS[mode]} amplifier (generated)",
+        f"* mode: {mode}",
         f"* analysis: {analysis}",
         f"VCC vcc 0 DC {_num(inputs.vcc)}",
         (
             "VIN in 0 DC 0 AC 1 "
             f"SIN(0 {_num(inputs.amplitude)} {_num(inputs.frequency)})"
         ),
-        f"R1 vcc b {_num(inputs.r1)}",
-        f"R2 b 0 {_num(inputs.r2)}",
         f"RC vcc c {_num(inputs.rc)}",
-        f"RE e 0 {_num(inputs.re)}",
         f"CIN in b {_num(inputs.cin)}",
         f"COUT c out {_num(inputs.cout)}",
         f"RL out 0 {_num(inputs.rl)}",
         f"Q1 c b e {MODEL_NAME}",
         f".model {MODEL_NAME} {MODEL_CARD}",
-        ".control",
     ]
+
+    if mode == MODE_DIVIDER:
+        lines.extend(
+            [
+                f"R1 vcc b {_num(_require(inputs.r1, 'R1'))}",
+                f"R2 b 0 {_num(_require(inputs.r2, 'R2'))}",
+                f"RE e 0 {_num(_require(inputs.re, 'RE'))}",
+            ]
+        )
+    elif mode == MODE_FIXED:
+        lines.extend(
+            [
+                f"RB vcc b {_num(_require(inputs.rb, 'RB'))}",
+                "VEMIT e 0 DC 0",
+            ]
+        )
+    elif mode == MODE_EMITTER:
+        lines.extend(
+            [
+                f"RB vcc b {_num(_require(inputs.rb, 'RB'))}",
+                f"RE e 0 {_num(_require(inputs.re, 'RE'))}",
+            ]
+        )
+
+    lines.append(".control")
 
     if analysis == ANALYSIS_DC:
         lines.extend(
