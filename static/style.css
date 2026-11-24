@@ -537,3 +537,246 @@ input:focus, .unit-select:focus { outline: 2px solid var(--accent); outline-offs
   .goal-band { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
   .goal-text { border-left: 0; padding-left: 0; }
 }
+/* Lab 04 simulator */
+.lab-nav {
+  max-width: 1100px;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+}
+.lab-nav a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.lab-nav a:hover { text-decoration: underline; }
+.lab-nav span { color: var(--muted); }
+
+.sim-lab {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr) 360px;
+  gap: 1rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  align-items: start;
+}
+.sim-inputs, .sim-plots, .sim-results { min-width: 0; }
+
+.sim-circuit { padding: 0.75rem 0.75rem 0; }
+.sim-schematic { max-width: 380px; }
+
+.sim-form {
+  padding: 0.9rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.analysis-tabs {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.analysis-tabs .field-label { flex: 1 1 100%; margin: 0; }
+.analysis-tab { position: relative; display: inline-block; }
+.analysis-tab input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.analysis-tab span {
+  display: block;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.analysis-tab input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.analysis-tab input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sim-group {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.sim-group:first-of-type { border-top: 0; padding-top: 0; }
+.sim-group h3 {
+  margin: 0 0 0.15rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.sim-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+}
+.sim-row .field-label { min-width: 0; font-size: 0.88rem; }
+.sim-row .field-input { justify-content: flex-end; }
+.sim-row input { width: 86px; }
+.sim-row .error { grid-column: 1 / -1; margin-left: 0; white-space: normal; }
+
+.sim-hint { margin: 0; font-size: 0.78rem; color: var(--muted); }
+.sim-form .btn-calc { margin-top: 0.2rem; }
+
+.engine-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 1rem 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.engine-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 3px #e6f4ec;
+}
+.engine-bad .engine-dot { background: var(--bad); box-shadow: 0 0 0 3px #fbe9e9; }
+.engine-name { font-weight: 700; }
+.engine-model { margin-left: auto; color: var(--muted); }
+.engine-detail { margin: 0.5rem 1rem 0; font-size: 0.8rem; color: var(--bad); }
+
+.run-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.9rem 1rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.run-analysis { font-weight: 700; color: var(--ink); }
+.run-source { margin-left: auto; }
+
+.plot-wrap {
+  margin: 0.75rem 1rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  overflow-x: auto;
+}
+.plot-svg { width: 100%; height: auto; min-width: 520px; display: block; }
+.plot-caption { margin: 0.5rem 1rem 0; font-size: 0.78rem; color: var(--muted); }
+.plot-empty {
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+.plot-empty p { margin: 0.25rem 0; }
+.plot-empty-note { font-size: 0.8rem; }
+
+.provenance {
+  margin: 0.9rem 1rem 0;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+.provenance:last-child { padding-bottom: 1rem; }
+.provenance summary { cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--accent); }
+.provenance pre {
+  margin: 0.5rem 0 0;
+  padding: 0.7rem;
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  margin: 0.75rem 1rem 0;
+}
+.metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.metric-label { color: var(--muted); }
+.metric-value { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+
+.result-subtitle {
+  margin: 1rem 1rem 0.4rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.table-scroll { overflow-x: auto; margin: 0 0.75rem; }
+.sim-table { margin-top: 0; }
+.sim-table th {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-align: right;
+}
+.sim-table th:first-child { text-align: left; }
+.sim-table td { padding: 0.4rem 0.5rem; font-size: 0.84rem; }
+.sim-table .qty { width: 22%; }
+.sim-table .delta { color: var(--muted); font-weight: 600; }
+.reference-note { margin: 0.6rem 1rem 0; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+.sim-warnings ul { margin: 0.4rem 0 0 1.1rem; padding: 0; font-weight: 500; }
+.sim-warnings li { margin: 0.2rem 0; }
+
+.error-banner {
+  max-width: 1280px;
+  margin: 0 auto 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--bad);
+  background: #fdf0f0;
+  color: var(--bad);
+  font-size: 0.9rem;
+}
+.error-banner strong { margin-right: 0.35rem; }
+
+@media (max-width: 1180px) {
+  .sim-lab { grid-template-columns: 320px minmax(0, 1fr); }
+  .sim-results { grid-column: 1 / -1; }
+}
+@media (max-width: 820px) {
+  .sim-lab { grid-template-columns: 1fr; }
+  .sim-results { grid-column: 1; }
+  .sim-inputs { order: 1; }
+  .sim-plots { order: 2; }
+  .sim-results { order: 3; }
+  .plot-svg { min-width: 0; }
+}

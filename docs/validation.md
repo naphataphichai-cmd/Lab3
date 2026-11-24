@@ -84,3 +84,57 @@ A3's `1.0263 mA`.
 `0 Ω` is below the accepted `1 mΩ` minimum, so the app must show the resistor
 range message next to `RB` and must not display A2's result as the result of
 this run.
+
+---
+
+# Lab 04 — Browser Acceptance Record (B1–B8)
+
+- Page under test: `http://127.0.0.1:5000/simulator`
+- Engine reported by the page: `ngspice-47`
+- BJT model reported by the page: `2N3904` (standard Motorola Gummel-Poon card)
+- Method: OpenCode Browser in the in-app Chromium session, with the Flask
+  development server on port 5000. Values were entered in the page form and
+  the "Run simulation" button was submitted; the observations below were read
+  from the result metrics, result table, SVG, and error elements after reload.
+
+Baseline circuit for B2, B4, B5: `VCC = 12 V`, `R1 = 100 kΩ`, `R2 = 22 kΩ`,
+`RC = 2.2 kΩ`, `RE = 1 kΩ`, `RL = 10 kΩ`, `Cin = Cout = 10 µF`,
+`amplitude = 10 mV peak`, `frequency = 1 kHz`.
+
+Expected results were stated before each run from the circuit and the analysis
+definition (not copied from the app's output). SPICE DC values are expected to
+differ from the Lab 03 analytical reference because the 2N3904 model and the
+`β = 100`, `VBE = 0.70 V` assumptions are different.
+
+| Case | Check | Expected | Observed | Status |
+|---|---|---|---|---|
+| B1 · Lab 03 regression | Fixed, Emitter and Divider modes still load and calculate after adding Lab 04 | Same A1–A3 values as before; `MATCH` shown in every mode | Fixed `IC = 1.13 mA`, `VCE = 9.514 V`; Emitter `IC = 1.026 mA`, `VCE = 8.705 V`; Divider `IC = 1.23 mA`, `VCE = 8.052 V`; all `MATCH` | PASS |
+| B2 · DC `.op` | Run DC on the baseline circuit | Real ngspice result, finite `VB, VE, VC, VCE, IC, IB, IE`, forward-active, `0 < VCE < VCC` | `VB = 2.004 V`, `VE = 1.333 V`, `VC = 9.087 V`, `VCE = 7.754 V`, `IB = 8.887 µA`, `IC = 1.324 mA`, `IE = 1.333 mA`; region `active`; engine `ngspice-47`; model `2N3904` | PASS |
+| B3 · one value changed | Baseline DC with `RE = 2 kΩ` | More emitter degeneration: `IC` falls and `VCE` rises versus B2; still active | `IC = 705.3 µA`, `VCE = 9.032 V`; lower `IC`, higher `VCE`; region `active` | PASS |
+| B4 · AC Bode | Run AC on the baseline circuit | Two plotted curves (gain and phase); gain at 1 kHz in single-digit positive dB; phase near −180°; low-frequency cutoff visible; `fH` honestly reported as outside the sweep | `4.89 dB (1.756×)` at 1 kHz; phase `−179.9°`; midband `4.89 dB`; `fL ≈ 2 Hz`; `fH` not in sweep; sweep `100 mHz – 100 MHz`; SVG contains 2 polylines | PASS |
+| B5 · transient | Run transient on the baseline circuit | Two waveforms; `Vin pp = 20 mV` for a 10 mV peak source; `Vout` several tens of mV; output inverted; 5-cycle window | `Vin pp = 20 mV`; `Vout pp = 35.1 mV`; `Vout/Vin = 1.76×`; `inverted (≈180°)`; window `0 – 5 ms`; SVG contains 2 polylines | PASS |
+| B6 · source changed | Transient with amplitude `20 mV`, then frequency `2 kHz` at `10 mV` | Doubling amplitude doubles both peak-to-peak values and keeps gain; doubling frequency halves the 5-cycle window and keeps gain | At `20 mV`: `Vin pp = 40 mV`, `Vout pp = 70.2 mV`, gain `1.76×`; at `2 kHz`: window `0 – 2.5 ms`, `Vin pp = 20 mV`, `Vout pp = 35.1 mV`, gain `1.76×` | PASS |
+| B7 · bad input | DC with `RE = 0` | Field-level range error; no `SUCCESS`, no result table, no plot, no stale previous result | `Must be between 1 mΩ and 10 MΩ.` next to `RE`; no `SUCCESS`; no result table; no SVG plot | PASS |
+| B8 · layout | Inspect the simulator at desktop and phone widths | Panels fit without horizontal overflow; three-column layout on desktop; stacked layout at phone width | At `1296 × 886`: grid columns `340 px / 517 px / 360 px`, document `scrollWidth = 1281 px` (< viewport), no horizontal overflow. At a `390 × 844` same-origin iframe: one column `343 px`, panels stacked in order inputs → plots → results, `scrollWidth = 375 px`, no horizontal overflow. Pixel screenshot capture was unavailable (tool requires a visible desktop window). | PASS |
+
+### B1–B8 notes
+
+- B1 is the explicit regression check that adding `/simulator` did not change
+  the Lab 03 analytical results; the three modes were loaded and submitted one
+  after another in the same browser session.
+- B2–B6 each triggered a fresh ngspice run. The netlist and ngspice log were
+  available in the collapsible `<details>` blocks, and the page showed the
+  engine and model on every successful run.
+- B7 confirms the validation path runs before the engine: no ngspice result,
+  table, or plot is rendered for the rejected input.
+- B8 used two live width checks. Desktop metrics were read from the page at
+  `1296 × 886`. Because `window.resizeTo()` did not change this browser tab's
+  viewport, the phone-width check loaded the same page in a `390 × 844`
+  same-origin iframe and measured the computed grid inside it: the `820 px`
+  breakpoint produced one column, stacked panels, and no horizontal overflow.
+  No pixel screenshot is attached because `browser.screenshot` reported
+  "Screenshot needs a visible tab"; the layout evidence is the live DOM/CSS
+  metrics above.
+- The exact B2–B6 values above were read from the page after each run; none of
+  them is a hard-coded success value. Changing `RE`, amplitude, or frequency
+  changed the parsed ngspice output and the displayed metrics as expected.

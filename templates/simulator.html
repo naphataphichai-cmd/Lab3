@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}Lab 04: BJT CE Amplifier Simulator{% endblock %}
+
+{% macro sim_field(name, label, values, errors, unit_choices, units) %}
+<div class="sim-row">
+  <label class="field-label" for="{{ name }}">{{ label }}</label>
+  <div class="field-input">
+    <input id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" inputmode="decimal" autocomplete="off">
+    <select name="{{ name }}_unit" class="unit-select" aria-label="{{ label }} unit">
+      {% for choice in unit_choices.get(name, []) %}
+      <option value="{{ choice }}" {% if choice == units.get(name) %}selected{% endif %}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if errors.get(name) %}<span class="error">{{ errors.get(name) }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<header class="app-header">
+  <div class="header-chip">📈</div>
+  <div class="header-text">
+    <h1>Lab 04: BJT CE Amplifier Simulator</h1>
+    <div class="course">ENG29 2121 &mdash; Common-emitter voltage divider &middot; real ngspice runs</div>
+  </div>
+  <div class="header-badge">DC &middot; AC &middot; Transient</div>
+</header>
+
+<nav class="lab-nav">
+  <a href="{{ url_for('index_get') }}">&larr; Lab 03 DC bias</a>
+  <span>Lab 03 stays available; Lab 04 adds SPICE simulation for the voltage-divider CE stage.</span>
+</nav>
+
+{% if form_error %}<div class="error-banner"><strong>Check the input.</strong> {{ form_error }}</div>{% endif %}
+{% if run_error %}<div class="error-banner"><strong>Simulation error.</strong> {{ run_error }}</div>{% endif %}
+
+<div class="sim-lab">
+  <aside class="panel sim-inputs">
+    <h2 class="panel-title"><span class="panel-icon">⚙</span> Circuit &amp; Parameters</h2>
+
+    <div class="sim-circuit">
+      <svg class="schematic sim-schematic" viewBox="0 0 380 430" role="img" aria-label="Common-emitter amplifier with voltage-divider bias, coupling capacitors and load">
+        <!-- VCC rail -->
+        <circle class="node" cx="100" cy="40" r="3.5" />
+        <circle class="node" cx="250" cy="40" r="3.5" />
+        <path class="wire" d="M100,40 H250" />
+        <text class="ref-val" x="175" y="28" text-anchor="middle">+VCC = {{ values.get('vcc', '') }} {{ units.get('vcc', '') }}</text>
+
+        <!-- R1 -->
+        <path class="wire" d="M100,40 V56 L108,62 L92,74 L108,86 L92,98 L108,110 L100,116 V190" />
+        <path class="wire" d="M100,190 V220" />
+        <text class="ref" x="78" y="92" text-anchor="end">R1</text>
+        <text class="ref-val" x="78" y="110" text-anchor="end">{{ values.get('r1', '') }} {{ units.get('r1', '') }}</text>
+
+        <!-- base node and R2 -->
+        <circle class="node" cx="100" cy="220" r="3.5" />
+        <path class="wire" d="M100,220 V240 L108,246 L92,258 L108,270 L92,282 L108,294 L100,300 V390" />
+        <text class="ref" x="78" y="270" text-anchor="end">R2</text>
+        <text class="ref-val" x="78" y="288" text-anchor="end">{{ values.get('r2', '') }} {{ units.get('r2', '') }}</text>
+
+        <!-- base wire -->
+        <path class="wire" d="M100,220 H205" />
+
+        <!-- RC -->
+        <path class="wire" d="M250,40 V56 L258,62 L242,74 L258,86 L242,98 L258,110 L250,116 V190" />
+        <text class="ref" x="272" y="92">RC</text>
+        <text class="ref-val" x="272" y="110">{{ values.get('rc', '') }} {{ units.get('rc', '') }}</text>
+
+        <!-- transistor -->
+        <circle class="device" cx="225" cy="220" r="27" />
+        <path class="wire" d="M205,205 V235" />
+        <path class="wire" d="M205,212 L250,190" />
+        <path class="wire" d="M205,228 L250,250" />
+        <polygon class="arrow" points="250,250 241.5,249.5 245,242.5" />
+        <text class="ref" x="282" y="214">Q1</text>
+        <text class="ref-val" x="282" y="230">NPN</text>
+        <text class="ref-val" x="282" y="246">{{ model_name }}</text>
+
+        <!-- RE -->
+        <path class="wire" d="M250,250 V270 L258,276 L242,288 L258,300 L242,312 L258,324 L250,330 V390" />
+        <text class="ref" x="272" y="300">RE</text>
+        <text class="ref-val" x="272" y="318">{{ values.get('re', '') }} {{ units.get('re', '') }}</text>
+
+        <!-- Cout and output node -->
+        <path class="wire" d="M250,190 H292" />
+        <path class="wire" d="M292,180 V200" />
+        <path class="wire" d="M300,180 V200" />
+        <path class="wire" d="M300,190 H340" />
+        <circle class="node" cx="340" cy="190" r="3.5" />
+        <text class="ref" x="296" y="170">Cout</text>
+        <text class="ref-val" x="296" y="186">{{ values.get('cout', '') }} {{ units.get('cout', '') }}</text>
+        <text class="ref-val" x="352" y="184">Vout</text>
+
+        <!-- RL -->
+        <path class="wire" d="M340,190 V230 L348,236 L332,248 L348,260 L332,272 L348,284 L340,290 V390" />
+        <text class="ref" x="362" y="260">RL</text>
+        <text class="ref-val" x="362" y="278">{{ values.get('rl', '') }} {{ units.get('rl', '') }}</text>
+
+        <!-- source -->
+        <circle class="device" cx="40" cy="260" r="16" />
+        <path class="wire" d="M32,260 Q36,252 40,260 T48,260" />
+        <path class="wire" d="M40,244 V220 H56" />
+        <path class="wire" d="M40,276 V390" />
+        <text class="ref" x="18" y="300">VIN</text>
+        <text class="ref-val" x="18" y="318">{{ values.get('amplitude', '') }} {{ units.get('amplitude', '') }}</text>
+        <text class="ref-val" x="18" y="334">{{ values.get('frequency', '') }} {{ units.get('frequency', '') }}</text>
+
+        <!-- Cin -->
+        <path class="wire" d="M56,220 H64" />
+        <path class="wire" d="M64,210 V230" />
+        <path class="wire" d="M72,210 V230" />
+        <path class="wire" d="M72,220 H100" />
+        <text class="ref" x="68" y="202">Cin</text>
+        <text class="ref-val" x="68" y="188" text-anchor="middle">{{ values.get('cin', '') }} {{ units.get('cin', '') }}</text>
+
+        <!-- ground rail -->
+        <path class="wire" d="M40,390 H340" />
+        <path class="wire" d="M178,390 H202 M183,398 H197 M188,406 H192" />
+        <text class="ref-val" x="212" y="404">GND</text>
+      </svg>
+    </div>
+
+    <form method="post" action="{{ url_for('simulator_post') }}" novalidate class="sim-form">
+      <fieldset class="analysis-tabs">
+        <legend class="field-label">Analysis</legend>
+        {% for value, label in analysis_choices %}
+        <label class="analysis-tab">
+          <input type="radio" name="analysis" value="{{ value }}" aria-label="{{ label }} analysis" {% if value == analysis %}checked{% endif %}>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </fieldset>
+
+      <div class="sim-group">
+        <h3>Supply &amp; bias</h3>
+        {{ sim_field("vcc", "VCC", values, errors, unit_choices, units) }}
+        {{ sim_field("r1", "R1 (upper divider)", values, errors, unit_choices, units) }}
+        {{ sim_field("r2", "R2 (lower divider)", values, errors, unit_choices, units) }}
+        {{ sim_field("rc", "RC (collector)", values, errors, unit_choices, units) }}
+        {{ sim_field("re", "RE (emitter)", values, errors, unit_choices, units) }}
+        {{ sim_field("rl", "RL (load)", values, errors, unit_choices, units) }}
+      </div>
+
+      <div class="sim-group">
+        <h3>Coupling</h3>
+        {{ sim_field("cin", "Cin", values, errors, unit_choices, units) }}
+        {{ sim_field("cout", "Cout", values, errors, unit_choices, units) }}
+      </div>
+
+      <div class="sim-group">
+        <h3>Source</h3>
+        {{ sim_field("amplitude", "Amplitude (peak)", values, errors, unit_choices, units) }}
+        {{ sim_field("frequency", "Frequency", values, errors, unit_choices, units) }}
+      </div>
+
+      <p class="sim-hint">
+        DC opens Cin and Cout. AC uses a 1 V, 0&deg; source. Transient uses the
+        SIN source above (5 cycles, clamped to 10&nbsp;µs&ndash;50&nbsp;ms).
+      </p>
+
+      <button type="submit" class="btn-calc">▶ Run simulation</button>
+    </form>
+  </aside>
+
+  <section class="panel sim-plots">
+    <h2 class="panel-title"><span class="panel-icon">📈</span> Simulation &amp; Plots</h2>
+
+    <div class="engine-strip {{ 'engine-ok' if engine_ready else 'engine-bad' }}">
+      <span class="engine-dot"></span>
+      <span class="engine-name">Engine: {{ engine_label }}</span>
+      <span class="engine-model">Model: {{ model_name }}</span>
+    </div>
+    {% if not engine_ready and engine_detail %}
+    <p class="engine-detail">{{ engine_detail }}</p>
+    {% endif %}
+
+    {% if result %}
+    <div class="run-strip">
+      <span class="status-pill pass">SUCCESS</span>
+      <span class="run-analysis">{{ result.analysis_label }}</span>
+      <span class="run-source">Source: {{ result.source_text }}</span>
+    </div>
+
+    {% if result.plot_svg %}
+    <div class="plot-wrap">{{ result.plot_svg | safe }}</div>
+    <p class="plot-caption">{{ result.plot_caption }}</p>
+    {% else %}
+    <p class="plot-empty">DC analysis returns one operating point; see the results panel.</p>
+    {% endif %}
+
+    <details class="provenance">
+      <summary>Netlist sent to ngspice</summary>
+      <pre>{{ result.netlist }}</pre>
+    </details>
+    <details class="provenance">
+      <summary>ngspice run log</summary>
+      <pre>{{ result.log }}</pre>
+    </details>
+    {% else %}
+    <div class="plot-empty">
+      <p>Choose <strong>DC</strong>, <strong>AC</strong> or <strong>Transient</strong>, then press <strong>Run simulation</strong>.</p>
+      <p class="plot-empty-note">Every plotted point comes from the ngspice output files; there are no mock traces.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <aside class="panel sim-results">
+    <h2 class="panel-title"><span class="panel-icon">📊</span> Engineering Results</h2>
+
+    {% if result %}
+    <p class="mode-tag">{{ result.analysis_label }}</p>
+
+    <div class="metric-grid">
+      {% for metric in result.metrics %}
+      <div class="metric">
+        <span class="metric-label">{{ metric.label }}</span>
+        <span class="metric-value">{{ metric.value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if result.spice_rows %}
+    <h3 class="result-subtitle">SPICE operating point</h3>
+    <div class="table-scroll">
+      <table class="results-table sim-table">
+        <thead>
+          <tr><th>Qty</th><th>SPICE</th><th>Lab 03</th><th>|Δ|</th></tr>
+        </thead>
+        <tbody>
+          {% for row in result.spice_rows %}
+          <tr>
+            <td class="qty">{{ row.symbol }}</td>
+            <td class="val">{{ row.value }}</td>
+            <td class="val">{{ result.analytical_rows[loop.index0].value if result.analytical_rows else '--' }}</td>
+            <td class="val delta">{{ result.delta_rows[loop.index0].value if result.delta_rows else '--' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% elif result.analytical_rows %}
+    <h3 class="result-subtitle">Lab 03 analytical DC reference</h3>
+    <div class="table-scroll">
+      <table class="results-table sim-table">
+        <thead><tr><th>Qty</th><th>Lab 03</th></tr></thead>
+        <tbody>
+          {% for row in result.analytical_rows %}
+          <tr><td class="qty">{{ row.symbol }}</td><td class="val">{{ row.value }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <p class="reference-note">{{ result.analytical_note }}</p>
+    {% if result.analytical_region %}
+    <p class="reference-note">Lab 03 region: <strong>{{ result.analytical_region }}</strong>.</p>
+    {% endif %}
+
+    {% if result.warnings %}
+    <div class="status-box status-bad sim-warnings">
+      <div class="status-row"><span class="status-icon">⚠</span><span>Simulation warnings</span></div>
+      <ul>
+        {% for warning in result.warnings %}<li>{{ warning }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="plot-empty">Results appear here after a successful run.</p>
+    {% endif %}
+  </aside>
+</div>
+
+<section class="goal-band">
+  <span class="goal-chip">🎯</span>
+  <span class="goal-title">Lab 04 goal</span>
+  <span class="goal-text">
+    Extend Lab 03 with one real CE voltage-divider simulation: DC operating point,
+    AC Bode response and transient waveforms, while keeping the three Lab 03
+    analytical bias modes unchanged.
+  </span>
+</section>
+{% endblock %}

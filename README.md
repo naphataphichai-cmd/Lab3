@@ -1,8 +1,10 @@
-# เครื่องคำนวณไบอัส DC ของ BJT Common-Emitter — Lab 03
+# BJT Common-Emitter — Lab 03 DC Bias และ Lab 04 CE Amplifier Simulator
 
-งานส่งวิชา ENG29 2121: เว็บแอป Flask หน้าเดียวที่คำนวณจุดทำงาน DC ของสเตจ
+งานส่งวิชา ENG29 2121: เว็บแอป Flask ที่เริ่มจากเครื่องคำนวณจุดทำงาน DC ของสเตจ
 common-emitter สำหรับ **วงจรไบอัส 3 แบบ** แจ้งเตือนเมื่อไบอัสอยู่นอกช่วง
 forward-active และตรวจผลทุกโหมดด้วยการแก้สมการ nodal อีกวิธีหนึ่งอย่างอิสระ
+จากนั้น Lab 04 ต่อยอดด้วยหน้า simulator ที่รัน ngspice จริงสำหรับวงจร
+voltage-divider common-emitter หนึ่งวงจร (DC, AC และ transient)
 
 - **Voltage Divider Bias** — ค่าเหมือน Lab 02 ทุกตัวเลข
 - **Fixed Bias** — มีตัวต้านทานที่ฐานตัวเดียว
@@ -138,6 +140,82 @@ VCE = VC − VE
 นั้น และไม่มีผลลัพธ์จากการรันครั้งก่อนค้างอยู่ ถ้าผลลัพธ์กลางทางไม่ใช่ค่าจำกัด
 ระบบจะรายงานเป็นข้อผิดพลาดปกติ ไม่ใช่ error 500
 
+## Lab 04 — CE Amplifier Simulator (ngspice)
+
+Lab 04 ไม่ได้แทนที่ Lab 03: หน้า `/` และผลคำนวณ DC ทั้งสามโหมดยังทำงานเหมือนเดิม
+ส่วนหน้า `/simulator` เพิ่มการจำลองวงจร common-emitter แบบ voltage divider
+หนึ่งวงจรด้วย ngspice จริง
+
+### สิ่งที่หน้า `/simulator` ทำ
+
+- รับ `VCC, R1, R2, RC, RE, RL, Cin, Cout` และแหล่งจ่าย `amplitude, frequency`
+  พร้อมหน่วย `V/mV`, `Ω/kΩ/MΩ`, `pF/nF/µF/F` และ `Hz/kHz/MHz`
+- **DC (`.op`)** — รายงาน `VB, VE, VC, VCE, IC, IB, IE` จาก ngspice
+  พร้อมภาคการทำงานและคำเตือนเมื่อ `VCE ≤ 0.2 V` หรือ `IC ≤ 0`
+- **AC (`.ac`)** — sweep คงที่ `0.1 Hz – 100 MHz` (20 จุด/decade) วาดกราฟ Bode
+  ของขนาดเกน (dB) และเฟส (องศา) รายงานเกน/เฟสที่ความถี่แหล่งจ่าย มิดแบนด์เกน
+  และจุดตัด `−3 dB` (ถ้าอยู่นอกช่วง sweep จะเขียนว่า "not determined in sweep range")
+- **Transient (`.tran`)** — จำลอง 5 คาบของแหล่งจ่าย จำกัดช่วง `10 µs – 50 ms`
+  วาด `Vin` กับ `Vout` ตามเวลา รายงานค่า peak-to-peak, อัตราส่วน และทิศทางการกลับเฟส
+- แสดง `ngspice-47`, โมเดล `2N3904`, netlist ที่ส่งจริง, log ของ ngspice
+  และสถานะการรัน
+- แสดงผล Lab 03 analytical (`β = 100`, `VBE = 0.70 V`) เทียบข้าง ๆ ในคอลัมน์
+  `Lab 03` และ `|Δ|` โดยระบุชัดว่าผล SPICE กับ analytical ใช้สมมติฐานต่างกัน
+  จึงไม่จำเป็นต้องตรงกันทุกหลัก
+
+### ติดตั้ง ngspice (Windows)
+
+แอปเรียก ngspice เป็น executable ภายนอก ไม่ได้ติดตั้งผ่าน pip วิธีที่ใช้ในแล็บนี้:
+
+1. ดาวน์โหลด `ngspice-47_64.7z` จาก
+   <https://sourceforge.net/projects/ngspice/files/ng-spice-rework/47/>
+2. แตกไฟล์ไว้ที่ `tools/ngspice/` ให้ได้ path
+   `tools/ngspice/Spice64/bin/ngspice_con.exe`
+3. ถ้าเก็บไว้ที่อื่น ให้ตั้ง environment variable `NGSPICE_BIN` ชี้ไปที่ไฟล์ `.exe`
+   หรือเพิ่มโฟลเดอร์ `bin` ของ ngspice ลง `PATH`
+
+โฟลเดอร์ `tools/` ถูก ignore ใน git เพราะเป็นไฟล์ไบนารีของเครื่องนี้
+ถ้าไม่พบ ngspice หน้าเว็บจะแสดง error ที่อ่านได้และไม่ค้างผลรันครั้งก่อนไว้
+
+### โมเดลและความโปร่งใสของผล
+
+- โมเดล BJT คือ Motorola 2N3904 Gummel-Poon card มาตรฐาน
+  (`IS=6.734f ... BF=416.4 ...`) การ์ดเต็มปรากฏใน netlist บนหน้าเว็บ
+- ทุกจุดของกราฟมาจากไฟล์ `ac.txt` / `tran.txt` ที่ ngspice เขียนจริง
+  ไม่มี trace จำลองหรือค่าคงที่ที่ hard-code
+- ช่วงอินพุต: `0 < VCC ≤ 100 V`, `1 mΩ ≤ R ≤ 10 MΩ`, `1 pF ≤ C ≤ 1 F`,
+  `0 < amplitude ≤ 1 V peak`, `1 Hz ≤ frequency ≤ 10 MHz`
+- ทุกค่าถูกแปลงเป็นหน่วยฐานและตรวจว่าเป็นจำนวนจำกัดก่อนสร้าง netlist
+  ข้อความจากฟอร์มไม่ถูกส่งเข้า netlist หรือ command line โดยตรง
+- ใช้ `subprocess.run` แบบ argument list, `shell=False`, มี timeout และ
+  working directory ชั่วคราวแยกต่อการรัน
+
+### ค่าอ้างอิงของวงจรตั้งต้น
+
+`VCC = 12 V`, `R1 = 100 kΩ`, `R2 = 22 kΩ`, `RC = 2.2 kΩ`, `RE = 1 kΩ`,
+`RL = 10 kΩ`, `Cin = Cout = 10 µF`, `amplitude = 10 mV peak`, `frequency = 1 kHz`
+ให้ผลจาก ngspice 47 กับโมเดล 2N3904 ประมาณ:
+
+| Analysis | Observed |
+|---|---|
+| DC | `VB = 2.004 V`, `VE = 1.333 V`, `VC = 9.087 V`, `VCE = 7.754 V`, `IB = 8.887 µA`, `IC = 1.324 mA`, `IE = 1.333 mA` (active) |
+| AC @ 1 kHz | `4.89 dB (1.756×)`, phase `−179.9°`, midband `4.89 dB`; `fL ≈ 2 Hz`, `fH` อยู่นอก sweep |
+| Transient | `Vin pp = 20 mV`, `Vout pp = 35.1 mV`, `1.76×`, inverted (≈180°), window `0 – 5 ms` |
+
+ค่าเหล่านี้เป็นผลจาก simulator ไม่ใช่ค่าที่คำนวณมือ และใช้เป็น baseline
+ของ browser acceptance B2–B6 ใน `docs/validation.md`
+
+### เทสต์ของ Lab 04
+
+- `tests/test_spice_engine.py` — netlist, parser, error path และ integration test
+  ที่รัน ngspice จริง (จะ skip เมื่อไม่พบ engine)
+- `tests/test_spice_validation.py` — ช่วงอินพุตและ choice ของ analysis
+- `tests/test_plotting.py` — SVG ของ Bode และ transient
+- `tests/test_simulator_routes.py` — route และ view model รวมถึงกรณี error
+  ที่ต้องไม่แสดงผลรันเก่าค้างไว้
+
+ชุดเทสต์ Lab 03 ทั้งหมดยังต้องผ่านพร้อมกัน
+
 ## วิธีรัน
 
 ```powershell
@@ -146,8 +224,10 @@ python -m venv .venv
 .\.venv\Scripts\python -m flask --app app run --port 5000
 ```
 
-เปิด <http://127.0.0.1:5000/> หรือเปิดตรงเข้าที่โหมดที่ต้องการได้ เช่น
-`http://127.0.0.1:5000/?mode=fixed` (หรือเลือกโหมดในหน้าเว็บก็ได้)
+เปิด <http://127.0.0.1:5000/> สำหรับ Lab 03 หรือ
+<http://127.0.0.1:5000/simulator> สำหรับ Lab 04 และเปิดตรงเข้าที่โหมดที่ต้องการได้
+เช่น `http://127.0.0.1:5000/?mode=fixed` (หรือเลือกโหมดในหน้าเว็บก็ได้)
+หน้า Lab 04 ต้องมี ngspice ตามหัวข้อติดตั้งด้านบนก่อนจึงจะรันได้
 
 ## วิธีทดสอบ
 
@@ -155,10 +235,13 @@ python -m venv .venv
 .\.venv\Scripts\python -m pytest -q
 ```
 
+เทสต์ integration ของ Lab 04 จะรัน ngspice จริงเมื่อพบ executable
+และจะถูก skip พร้อมเหตุผลเมื่อเครื่องยังไม่ได้ติดตั้ง ngspice
+
 ## โครงสร้างโปรเจกต์
 
 ```text
-app.py                      Flask factory, การเลือกโหมด, การแปลงหน่วย, การสร้าง view
+app.py                      Flask factory, Lab 03 routes, Lab 04 /simulator, การแปลงหน่วย
 engineering/
   model.py                  ชื่อโหมด, dataclass ของอินพุต, กติกาภาคการทำงาน, display point
   solver.py                 เส้นทาง analytical: divider (Thévenin), fixed, emitter
@@ -167,19 +250,29 @@ engineering/
   validation.py             การอ่านค่าและกติกาอินพุตแยกตามโหมด
   compare.py                การเทียบผลด้วยค่าคลาดเคลื่อนที่ยอมรับได้
   format.py                 แปลงค่า → (ตัวเลข, หน่วย)
-templates/                  หน้า base และ index
-static/style.css            สไตล์แบบ lab sheet
-tests/                      เทสต์ระดับหน่วยและระดับ route
-docs/validation.md          ผลตรวจ A1–A5 ของ Lab 03
+spice_engine.py             netlist, ngspice subprocess, parser, provenance
+spice_validation.py         ช่วงอินพุตของ simulator และการเลือก analysis
+plotting.py                 SVG ของ Bode และ transient (ไม่ใช้ JS chart library)
+templates/                  base, index (Lab 03) และ simulator (Lab 04)
+static/style.css            สไตล์แบบ lab sheet + simulator layout
+tests/                      เทสต์ระดับหน่วย, route และ ngspice integration
+docs/validation.md          ผลตรวจ A1–A5 ของ Lab 03 และ B1–B8 ของ Lab 04
 docs/superpowers/           เอกสารออกแบบและแผนงานที่อนุมัติแล้ว
+tools/                      ngspice ที่ติดตั้งในเครื่อง (gitignored)
 ```
 
-## ผลตรวจ A1–A5
+## ผลตรวจ A1–A5 และ B1–B8
 
-`docs/validation.md` เก็บตาราง A1–A5 พร้อมค่าคาดหมายที่คำนวณมือแยกต่างหาก
-ผลที่อ่านได้จากหน้าเว็บจริง และวิธีที่ใช้ตรวจ ทั้ง 5 กรณีรันในเบราว์เซอร์ของแอป
-และผ่านทั้งหมด โดย `docs/lab03-a3-emitter.jpeg` คือภาพหน้าเว็บกรณี A3
-ส่วนชุดเทสต์ก็ครอบตัวเลขชุดเดียวกันทั้งในระดับ Python และระดับ route
+`docs/validation.md` เก็บตาราง A1–A5 ของ Lab 03 พร้อมค่าคาดหมายที่คำนวณมือ
+แยกต่างหาก ผลที่อ่านได้จากหน้าเว็บจริง และวิธีที่ใช้ตรวจ ทั้ง 5 กรณีรันใน
+เบราว์เซอร์ของแอปและผ่านทั้งหมด โดย `docs/lab03-a3-emitter.jpeg` คือภาพหน้าเว็บ
+กรณี A3 ส่วนชุดเทสต์ก็ครอบตัวเลขชุดเดียวกันทั้งในระดับ Python และระดับ route
+
+ส่วน Lab 04 มีตาราง B1–B8 ในไฟล์เดียวกัน ครอบการถดถอยของ Lab 03, DC/AC/tran
+จาก ngspice จริง, การเปลี่ยน `RE`, การเปลี่ยนแหล่งจ่าย, อินพุตผิด (`RE = 0`)
+และ layout ที่ความกว้างเดสก์ท็อปกับมือถือ ค่าที่อ่านได้และข้อจำกัดของหลักฐาน
+(เช่น screenshot ที่ถูกบล็อกเพราะหน้าต่างเบราว์เซอร์ไม่แสดง) ถูกบันทึกตามจริง
+ในตาราง
 
 ## คำชี้แจงการใช้ AI
 
@@ -250,9 +343,24 @@ divider ต้องเท่า Lab 02, โหมดใหม่ให้เต
   `UNIT_CHOICES`/`DEFAULT_UNITS` และแปลงเฉพาะช่องที่โหมดนั้นใช้ ไม่มีการแปลง
   กลับในชั้นคำนวณ ส่วนการจัดรูปแบบเพื่อแสดงผลอยู่ที่ `engineering/format.py`
 
+### Lab 04 — ส่วนที่ AI สร้างและสิ่งที่ตรวจ
+
+AI สร้าง `spice_engine.py` (netlist, subprocess, parser), `spice_validation.py`,
+`plotting.py`, route `/simulator` ใน `app.py`, template/CSS ของ Lab 04 และเทสต์
+ที่เกี่ยวข้อง ผู้เขียนกำหนดเงื่อนไขว่าต้องรัน ngspice จริง ใช้โมเดล 2N3904,
+แยกผล SPICE ออกจากผล analytical ของ Lab 03 และห้ามสร้างกราฟปลอม
+ผู้เขียนตรวจ B1–B8 ในเบราว์เซอร์ เทียบค่าที่อ่านได้กับค่าคาดหมาย และบันทึก
+หลักฐาน/ข้อจำกัดไว้ใน `docs/validation.md`
+
 ## ข้อจำกัด
 
-ไม่มีงานวิเคราะห์ AC, อัตราขยาย, แบบจำลอง small-signal, การจำลอง transient,
-schematic editor, การนำเข้า netlist, รองรับ FET, ฐานข้อมูล, authentication,
-JavaScript หรือ deployment `VBE` เป็นค่าที่กรอกเข้ามา ไม่ได้แก้จาก device model
-และการขึ้นกับอุณหภูมิอยู่นอกขอบเขตของงานนี้
+หน้า Lab 03 ยังไม่มีงานวิเคราะห์ AC, อัตราขยาย, แบบจำลอง small-signal
+หรือการจำลอง transient เช่นเดิม ส่วน Lab 04 รองรับวงจรอ้างอิง
+voltage-divider common-emitter **หนึ่งวงจร** เท่านั้น ไม่มี schematic editor,
+การนำเข้า netlist, วงจร arbitrary, FET, การวิเคราะห์ AC/transient ของโหมด
+Fixed/Emitter, การกวาดอุณหภูมิ หรือ deployment
+
+โมเดล 2N3904 เป็น model card มาตรฐาน ไม่ใช่ค่าที่วัดจากอุปกรณ์จริงในห้องแล็บ
+ดังนั้นผล SPICE จึงต่างจาก Lab 03 analytical (`β = 100`, `VBE = 0.70 V`) ได้
+และไม่ควรใช้แทนการวัดบน breadboard โดยตรง `VBE` ของ Lab 03 ยังเป็นค่าที่กรอก
+เข้ามา ไม่ได้แก้จาก device model

@@ -2,3 +2,9 @@
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Local ngspice install and scratch simulation output (see README)
+tools/
+*.raw
+ac.txt
+tran.txt
