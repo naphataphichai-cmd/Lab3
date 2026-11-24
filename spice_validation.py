@@ -16,6 +16,10 @@ from spice_engine import (
     ANALYSIS_DC,
     ANALYSIS_TRAN,
     ANALYSES,
+    MODE_DIVIDER,
+    MODE_EMITTER,
+    MODE_FIXED,
+    MODES,
     SpiceInputs,
 )
 
@@ -27,20 +31,15 @@ ANALYSIS_LABELS = {
 
 ANALYSIS_CHOICES = tuple((key, ANALYSIS_LABELS[key]) for key in ANALYSES)
 
-SPICE_FIELDS = (
-    "vcc",
-    "r1",
-    "r2",
-    "rc",
-    "re",
-    "rl",
-    "cin",
-    "cout",
-    "amplitude",
-    "frequency",
-)
+CIRCUIT_FIELDS = {
+    "divider": ("vcc", "r1", "r2", "rc", "re", "rl", "cin", "cout", "amplitude", "frequency"),
+    "fixed": ("vcc", "rb", "rc", "rl", "cin", "cout", "amplitude", "frequency"),
+    "emitter": ("vcc", "rb", "re", "rc", "rl", "cin", "cout", "amplitude", "frequency"),
+}
 
-RESISTOR_FIELDS = ("r1", "r2", "rc", "re", "rl")
+SPICE_FIELDS = CIRCUIT_FIELDS["divider"]
+
+RESISTOR_FIELDS = ("r1", "r2", "rb", "rc", "re", "rl")
 CAPACITOR_FIELDS = ("cin", "cout")
 
 R_MIN = 1e-3
@@ -53,6 +52,7 @@ FREQUENCY_MIN = 1.0
 FREQUENCY_MAX = 10e6
 
 ANALYSIS_ERROR = "Choose DC, AC or transient analysis."
+CIRCUIT_ERROR = "Choose a supported circuit mode."
 
 
 @dataclass(frozen=True)
@@ -68,6 +68,15 @@ def parse_analysis(raw: str | None) -> tuple[str | None, FieldError | None]:
     if text in ANALYSES:
         return text, None
     return None, FieldError("analysis", ANALYSIS_ERROR)
+
+
+def parse_circuit(raw: str | None) -> tuple[str | None, FieldError | None]:
+    text = raw.strip() if isinstance(raw, str) else ""
+    if not text:
+        return MODE_DIVIDER, None
+    if text in CIRCUIT_FIELDS:
+        return text, None
+    return None, FieldError("mode", CIRCUIT_ERROR)
 
 
 def _read_number(
@@ -97,11 +106,15 @@ def _read_number(
 
 def parse_spice_inputs(
     form: Mapping[str, str],
+    mode: str = MODE_DIVIDER,
 ) -> tuple[SpiceInputs | None, list[FieldError]]:
+    if mode not in CIRCUIT_FIELDS:
+        return None, [FieldError("mode", CIRCUIT_ERROR)]
+
     errors: list[FieldError] = []
     values: dict[str, float] = {}
 
-    for field in SPICE_FIELDS:
+    for field in CIRCUIT_FIELDS[mode]:
         value = _read_number(form, field, errors)
         if value is not None:
             values[field] = value
@@ -141,4 +154,4 @@ def parse_spice_inputs(
     if errors:
         return None, errors
 
-    return SpiceInputs(**values), []
+    return SpiceInputs(mode=mode, **values), []
